@@ -1,0 +1,251 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+## 2.6 Practice
+
+### Easy
+
+1. 2 - Pr(rain|Monday)
+2. 3 - The probability of it being monday, given it is raining
+3. 1 - Pr(Monday|rain)
+4. If you were to toss the globe many times the proportion of times you would get water is 0.7.
+
+### Medium
+
+1.1 W, W, W
+
+```{r}
+grid = seq(0, 1, 0.05)
+prior = rep(1, length(grid)) / length(grid)
+
+# The likelihood of 3 waters from 3 tosses
+lik = dbinom(x = 3, size = 3, prob = grid)
+
+posterior = prior * lik
+posterior = posterior / sum(posterior)
+plot(grid, posterior, type = "b")
+```
+
+1.2 W, W, W, L
+
+```{r}
+lik = dbinom(x = 3, size = 4, prob = grid)
+posterior = prior * lik
+posterior = posterior / sum(posterior)
+plot(grid, posterior, type = "b")
+```
+
+1.3 L, W, W, L, W, W, W
+
+Seven trials, five waters
+
+```{r}
+lik = dbinom(x = 5, size = 7, prob = grid)
+posterior = prior * lik
+posterior = posterior / sum(posterior)
+plot(grid, posterior, type = "b")
+```
+
+2.1 Same data, but prior=0 when p < 0.5.
+
+```{r}
+over_half = grid >= 0.5
+prior = as.numeric(over_half) / sum(over_half)
+plot(grid, prior, type = "b")
+```
+
+3 waters from 3 trials
+
+```{r}
+posterior = prior * dbinom(3, 3, grid)
+posterior = posterior / sum(posterior)
+plot(grid, posterior, type = "b")
+```
+
+2.2 W, W, W, L
+
+```{r}
+posterior = prior * dbinom(3, 4, grid)
+posterior = posterior / sum(posterior)
+plot(grid, posterior, type = "b")
+```
+
+2.3 L, W, W, L, W, W, W
+
+```{r}
+posterior = prior * dbinom(5, 7, grid)
+posterior = posterior / sum(posterior)
+plot(grid, posterior, type = "b")
+```
+
+
+2.3 What is the probability of the globe being earth, given seen land
+
+```{r}
+# P(Earth)
+prior = 0.5
+
+# Likelihood, P( Land | Earth )
+# 70% water = 0.3 land
+lik = 0.3
+
+# P( Land )  (How surprised are you at seeing land?)
+p_land = (0.5 * 1) + (0.5 * 0.3)
+
+posterior = (prior * lik) / p_land
+posterior
+```
+
+2.4 Deck with three cards
+
+- WW - two white sides
+- BB - two black sides
+- BW - 1 black, 1 white side
+
+Cards are shuffled, 1 drawn at random. Shows a black side. What is the probability the other side is black?
+
+Could be any of the B sides. 2/3 of the time it will be BB. Therefore the other side is B. 1/3 of the time it is BW, therefore the other side is W. 
+
+- WW could have produced the data 0 ways.
+- BB could have produced the data 2 ways.
+- BW could have produced the data 1 way.
+
+Therefore of all the (2 + 1) = 3 ways to draw a black card. 2/3 of the time it is BB and therefore 2/3 the time the other side is B.
+
+2.5 Deck with four cards
+
+- 2x BB
+- 1x BW
+- 1x WW
+
+Probability the other side is black = 4/5.
+
+Now, four out of the five possible ways to generate a black card result in the other side also being black.
+
+2.6  Heavy black ink. Less likely to pull a black card.
+
+Back to three cards:
+
+- BB
+- BW
+- WW
+
+BB : BW : WW pulls are in ratio of 1 : 2 : 3.
+
+Card is pulled and black side appears. What is the probability the other side is black?
+
+Ways to pull a black card:
+
+- BB, 2 ways, 1 weight -> 2
+- BW, 1 way, 2 weight -> 2
+- WW, 0 ways, 3 weight -> 0
+
+Now 2/4 = 0.5 of the time the second face will be black.
+
+2.7 2 card draws
+
+Original setup (2.4).
+
+- Draw 1 is black.
+- Draw 2 is white.
+
+What is the probability the other side of draw 1 is black?
+
+These are the ways cards could be drawn, where draw 1 is black and draw 2 is white:
+
+- BB, BW
+- BB, WW
+- BW, WW
+
+(All other sequences have 0 likelihood:)
+
+- BW, BB
+- WW, BB
+- WW, BW
+
+Of the possible ways 2 / 3 occur with drawing the BB card first.
+
+### Hard
+
+1. Pandas
+
+T = twins
+A = species A
+B = species B
+
+P(T|A) = 0.1
+P(T|B) = 0.2
+
+a panda of unknown species has given birth to twins. what is the probability the next birth will be twins?
+
+data = T
+
+1/3 times it will be A. multiply by 0.1 to get p(Twins)
+
+2/3 times it will be B. multiply by 0.2 to get p(Twins)
+
+```{r}
+1/3 * 0.1 + 2/3 * 0.2
+```
+
+2. Pandas again
+
+Compute probability panda is species A, given we've observed one birth of twins.
+
+P(A|T) = P(T|A)P(A) / P(T)
+
+```{r}
+(0.1 * 0.5) / (0.5 * 0.1 + 0.5 * 0.2)
+```
+
+3. Pandas again again
+
+Same panda in question above gives birth again and it is not twins.  Compute posterior probability that this panda is species A.
+
+Now, P(A) is 1/3 (computed in previous question), not 0.5.
+
+- S = singleton
+- P(A|S) = P(S|A)P(A) / P(S)
+- P(A) = 1/3
+- P(S|A) = 0.9
+- P(S|B) = 0.8
+- P(S) = P(A) * P(S|A) + P(B) * P(S|B)
+
+```{r}
+(0.9 * (1/3)) / ((1/3) * 0.9 + (2/3) * 0.8)
+```
+
+4. Genetic test
+
+- Probability correctly identifies species A is 0.8.
+- Probability correctly identifies species B is 0.65.
+
+Vet administers test, which is positive for A. What is the posterior probability of species A, given no other information.
+
+```{r}
+# prior P(A)
+p_a = 0.5
+
+# likelihood P(Test=A|A)
+lik = 0.8
+
+# data
+p_data = p_a * 0.8 + (1 - lik) * (1-0.65)
+
+post = p_a * lik / p_data
+post
+```
+
+What is the posterior probability of species A, given the birth information?
+
+```{r}
+# now prior, P(A) is 0.36 (computed in Q3.)
+p_a = 0.36
+
+post = p_a * lik / p_data
+post
+```
+
+
