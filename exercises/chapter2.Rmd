@@ -33,6 +33,7 @@ plot(grid, posterior, type = "b")
 ```{r}
 lik = dbinom(x = 3, size = 4, prob = grid)
 posterior = prior * lik
+head(posterior)
 posterior = posterior / sum(posterior)
 plot(grid, posterior, type = "b")
 ```
@@ -155,9 +156,11 @@ What is the probability the other side of draw 1 is black?
 
 These are the ways cards could be drawn, where draw 1 is black and draw 2 is white:
 
-- BB, BW
-- BB, WW
-- BW, WW
+- BB, BW (x2)
+- BB, WW (x2, x2)
+- BW, WW (x2)
+
+(Within BB there are 2 ways of drawing B first, (same for WW), so these counts are doubled.)
 
 (All other sequences have 0 likelihood:)
 
@@ -165,7 +168,7 @@ These are the ways cards could be drawn, where draw 1 is black and draw 2 is whi
 - WW, BB
 - WW, BW
 
-Of the possible ways 2 / 3 occur with drawing the BB card first.
+Of the possible ways 6 / 8 = 3 / 4 occur with drawing the BB card first.
 
 ### Hard
 
@@ -232,7 +235,7 @@ p_a = 0.5
 lik = 0.8
 
 # data
-p_data = p_a * 0.8 + (1 - lik) * (1-0.65)
+p_data = p_a * 0.8 + (1 - p_a) * (1-0.65)
 
 post = p_a * lik / p_data
 post
@@ -243,7 +246,7 @@ What is the posterior probability of species A, given the birth information?
 ```{r}
 # now prior, P(A) is 0.36 (computed in Q3.)
 p_a = 0.36
-
+p_data = p_a * 0.8 + (1 - p_a) * (1-0.65)
 post = p_a * lik / p_data
 post
 ```
