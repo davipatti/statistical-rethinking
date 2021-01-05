@@ -1,0 +1,215 @@
+---
+title: "4.7 practice"
+output: html_notebook
+---
+
+```{r}
+library(rethinking)
+```
+
+### 4M1. For the model definition below, simulate observed y values from the prior (not the posterior).
+
+$$
+y_i \sim Normal(μ, σ) \\
+μ \sim Normal(0, 10) \\
+σ \sim Exponential(1) \\
+$$
+
+```{r}
+mu <- rnorm(n = 1e4, mean = 0, sd = 10)
+sigma <- rexp(n = 1e4, rate = 1)
+y = rnorm(n = 1e4, mean = mu, sd = sigma)
+dens(y)
+```
+
+### 4M2. Translate the model just above into a quap formula
+
+```{r}
+model <- quap(
+    alist(
+        sigma ~ dexp(1),
+        mu ~ dnorm(mean=0, sd=10),
+        y ~ dnorm(mean = mu, sd = sigma)
+    ), data = data.frame(runif(10))
+)
+```
+
+### 4M3. Translate the quap model formula below into a mathematical model definition.
+
+```{r}
+flist <- alist(
+    y ~ dnorm( mu , sigma ),
+    mu <- a + b*x,
+    a ~ dnorm( 0 , 10 ),
+    b ~ dunif( 0 , 1 ),
+    sigma ~ dexp( 1 )
+)
+```
+
+$$
+y_i \sim Normal(\mu_i, \sigma)\\
+\mu_i = a + bx_i\\
+a \sim Norm(0, 10)\\
+b \sim Uniform(0, 1)\\
+\sigma \sim Exponential(1)
+$$
+
+### 4M4. A sample of students is measured for height each year for 3 years. After the third year, you want to fit a linear regression predicting height using year as a predictor. Write down the mathematical model definition for this regression, using any variable names and priors you choose. Be prepared to defend your choice of priors.
+
+Standardise heights to mean of zero, variance of 1.
+
+- $h_i$ height of individual $i$
+- $y$ year
+- $a_i$ per individual intercept
+- $b$ growth rate
+
+$$
+h_{iy} \sim Normal(\mu, \sigma)\\
+\mu = a_i + by\\
+a \sim Normal(0, 1)\\
+b \sim Normal(0, 1)\\
+\sigma \sim Exponential(1)
+$$
+
+- Could restrict prior on b to favour positive growth rates.
+- Could have individual growth rates
+- Could have hierarchical model, but I don't think we've got there yet...
+
+### 4M5. Now suppose I remind you that every student got taller each year. Does this information lead you to change your choice of priors? How?
+
+$$
+b \sim HalfNormal(1)
+$$
+
+### 4M6. Now suppose I tell you that the variance among heights for students of the same age is never more than 64cm. How does this lead you to revise your priors?
+
+Could restrict $\sigma$ even more, by giving values of $\sigma$ that correspond to >64cm 0 prior probability.
+
+
+# Hard
+
+
+### 4H1. The weights listed below were recorded in the !Kung census, but heights were not recorded for these individuals. Provide predicted heights and 89% intervals for each of these individuals. That is, fill in the table below, using model-based predictions.
+
+
+```{r}
+# Weights of individuals with unknown heights
+weights <- c(46.95, 43.72, 64.78, 32.59, 54.63)
+
+# Load data
+data("Howell1")
+d <- Howell1
+
+# Standardise weight
+d$weight_s <- (d$weight - mean(d$weight)) / sd(d$weight)
+
+# Make weight squared variable
+d$weight_s2 <- d$weight_s ^ 2
+
+# Model lifted from page 111, box 4.65
+m4.5 <- quap(
+    alist(
+        height ~ dnorm(mu, sigma),
+        mu <- a + b1 * weight_s + b2 * weight_s2,
+        a ~ dnorm(178, 20),
+        b1 ~ dlnorm(0, 1),
+        b2 ~ dnorm(0, 1),
+        sigma ~ dunif(0, 50)
+    ), data = d
+)
+
+precis(m4.5)
+```
+Plot the model fit (for completeness)
+
+```{r}
+weight_seq = seq(-2.2, 2, length.out = 30)
+pred_dat <- list(weight_s=weight_seq, weight_s2=weight_seq^2 )
+mu <- link(m4.5, data=pred_dat)
+mu_mean <- apply(mu, 2, mean)
+mu_pi <- apply(mu, 2, PI, prob=0.89)
+sim_height <- sim(m4.5, data = pred_dat)
+height_pi <- apply(sim_height, 2, PI, prob=0.89)
+
+plot(height ~ weight_s, d, col=col.alpha(rangi2, 0.5))
+lines(weight_seq, mu_mean)
+shade(mu_pi, weight_seq)
+shade(height_pi, weight_seq)
+```
+
+Now, back to the actual question... Predict the heights for the 5 individuals.
+
+```{r}
+unknown = data.frame(weights)
+unknown$weights_s <- (unknown$weights - mean(d$weight)) / sd(d$weight)
+unknown$weights_s2 <- unknown$weights_s ^ 2
+
+mu = link(m4.5, data=list(weight_s=unknown$weights_s, weight_s2=unknown$weights_s2))
+unknown$mu_mean <- apply(mu, 2, mean)
+unknown <- cbind(unknown, t(apply(mu, 2, HPDI, prob=0.89)))
+unknown
+```
+
+### 4H2. Select out all the rows in the Howell1 data with ages below 18 years of age. If you do it right, you should end up with a new data frame with 192 rows in it.
+
+```{r}
+d <- Howell1[Howell1$age < 18, ]
+```
+
+(a) Fit a linear regression to these data, using quap . Present and interpret the estimates. For
+every 10 units of increase in weight, how much taller does the model predict a child gets?
+
+```{r}
+d$weight_s <- (d$weight - mean(d$weight)) / sd(d$weight)
+
+lr <- quap(
+    alist(
+        height ~ dnorm(mu, sigma),
+        mu <- a + b * weight_s,
+        a ~ dnorm(mean(d$height), sd(d$height)),
+        b ~ dnorm(0, 5),
+        sigma ~ dexp(1)
+    ), data=d
+)
+
+precis(lr)
+```
+
+Individual with mean weight has height of 108.32 cm.
+
+Individual that is 10 units of weight heavier should be this much taller:
+
+```{r}
+w <- 10 / sd(d$weight)  # Standardize '10 units of weight heavier' 
+diff <- link(lr, data = list(weight_s = c(0, w)))
+mean(diff[,2] - diff[,1])
+
+# Could also have done:
+23.97 * w
+```
+
+(b) Plot the raw data, with height on the vertical axis and weight on the horizontal axis. Super-
+impose the MAP regression line and 89% interval for the mean. Also superimpose the 89% interval
+for predicted heights.
+
+```{r}
+weight_seq <- seq(-2, 3, length.out = 30)
+mu <- link(lr, data = list(weight_s=weight_seq))
+mu_mean <- apply(mu, 2, mean)
+mu_hpdi <- apply(mu, 2, HPDI, prob=0.89)
+sim_height <- sim(lr, data=list(weight_s=weight_seq))
+sim_height_pi <- apply(sim_height, 2, HPDI, prob=0.89)
+
+plot(height ~ weight_s, d, col=col.alpha(rangi2,0.5))
+lines(weight_seq, mu_mean)
+shade(mu_hpdi, weight_seq)
+shade(sim_height_pi, weight_seq)
+```
+
+(c) What aspects of the model fit concern you? Describe the kinds of assumptions you would
+change, if any, to improve the model. You don’t have to write any new code. Just explain what the
+model appears to be doing a bad job of, and what you hypothesize would be a better model.
+
+- Doesn't capture curve in data.
+- Posterior predictive looks quite dissimilar to the actual data.
+- Could use some kind of curve / spline.
